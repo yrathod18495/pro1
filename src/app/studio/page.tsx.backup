@@ -1,0 +1,115 @@
+'use client';
+
+import { StudioProvider, useStudio } from '@/context/studio-provider';
+import { ScriptEditor } from '@/components/studio/script-editor';
+import { CharacterAssignments } from '@/components/studio/character-assignments';
+import { GenerationProgress } from '@/components/studio/generation-progress';
+import { GenerationSettings } from '@/components/studio/generation-settings';
+import { GeneratedLines } from '@/components/studio/generated-lines';
+import { Rocket, Sparkles, ArrowUp, Cpu, Activity, Zap, ShieldCheck, Loader2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { initializeFirebase } from '@/firebase';
+import { ref, onValue } from 'firebase/database';
+import { getDisplayUrl, cn } from '@/lib/utils';
+import Header from '@/components/header';
+
+import { StudioDemoCard } from '@/components/studio/studio-demo-card';
+
+// Force dynamic execution for production stability
+export const dynamic = 'force-dynamic';
+
+function StudioContent() {
+  const { 
+    scriptState, generatedLines, hqProject, hqProjectId, isHqProjectLoading, 
+    generatedAudio, generatedAudioUrl, generationMode, isGenerating, isFinalizing 
+  } = useStudio();
+  
+  // 🛡️ HARDENED PURGE LOGIC
+  const isHqActive = hqProjectId || (hqProject && (hqProject.status === 'in_queue' || hqProject.status === 'processing'));
+  const isHqReady = hqProject?.status === 'completed' && !!hqProject.audioUrl;
+  const isStandardAudioReady = !isGenerating && !isFinalizing && (!!generatedAudio || !!generatedAudioUrl || (generatedLines.length > 0 && generatedLines.every(l => l.status === 'done')));
+  const isAudioReady = isHqReady || isStandardAudioReady;
+
+  // Show dialogue nodes whenever generated lines exist
+  const showGeneratedLines = generatedLines.length > 0;
+
+  return (
+    <div className="relative min-h-screen bg-background text-foreground dark:bg-[#0a0a0b] pb-20 selection:bg-primary/30 selection:text-white overflow-x-hidden transition-colors duration-300">
+      <Header />
+      {/* 🎭 HIGH-PERFORMANCE NEURAL BACKGROUND */}
+      <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
+        {/* Deep base layers */}
+        <div className="absolute inset-0 dark:bg-[radial-gradient(circle_at_50%_-20%,#1e1b4b,transparent_70%)] bg-[radial-gradient(circle_at_50%_-20%,#e0e7ff,transparent_70%)] opacity-60" />
+        <div className="absolute inset-0 dark:bg-[radial-gradient(circle_at_80%_40%,#4c1d9550,transparent_50%)] bg-[radial-gradient(circle_at_80%_40%,#f3e8ff80,transparent_50%)]" />
+        
+        {/* Subtle Grid Pattern */}
+        <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-[0.03] mix-blend-overlay" />
+        <div className="absolute inset-0 opacity-40 dark:opacity-100" style={{ backgroundImage: 'radial-gradient(currentColor 1px, transparent 1px)', backgroundSize: '60px 60px', color: 'rgba(120,120,120,0.1)' }} />
+
+        {/* Dynamic Aurora Orbs */}
+        <div className="absolute -top-[10%] -left-[10%] w-[50%] h-[50%] rounded-full bg-blue-600/10 dark:bg-blue-600/15 blur-[140px] animate-pulse opacity-40" />
+        <div className="absolute top-[30%] -right-[15%] w-[40%] h-[40%] rounded-full bg-purple-600/10 dark:bg-purple-600/15 blur-[120px] animate-pulse opacity-30" style={{ animationDelay: '5s' }} />
+        <div className="absolute -bottom-[10%] left-[20%] w-[35%] h-[35%] rounded-full bg-indigo-500/10 dark:bg-indigo-500/10 blur-[100px] animate-pulse opacity-20" style={{ animationDelay: '10s' }} />
+      </div>
+
+      <div className="container relative z-10 mx-auto max-w-7xl pt-10 pb-10 px-4 space-y-8">
+        {/* key forces a clean unmount/remount instead of React trying to
+            reconcile ScriptEditor/CharacterAssignments/StudioDemoCard against
+            each other when several flags (Firestore hqProject snapshot +
+            isGenerating) flip in the same render — this was the likely source
+            of the insertBefore/removeChild NotFoundError crashes on /studio. */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start" key={isHqActive || isAudioReady ? 'result' : 'editor'}>
+          
+          {/* PURGE EDITOR ON HQ SUBMISSION OR WHEN AUDIO IS READY */}
+          {!isHqActive && !isAudioReady && !(isGenerating && generationMode === 'high-quality') && (
+            <div className="lg:col-span-2 space-y-8 animate-in fade-in slide-in-from-left-4 duration-700">
+              <ScriptEditor />
+            </div>
+          )}
+
+          <div className={cn(
+              "space-y-8 mt-4 lg:mt-0 animate-in fade-in duration-700",
+              (isHqActive || isAudioReady || (isGenerating && generationMode === 'high-quality')) ? "lg:col-span-3 max-w-2xl mx-auto w-full" : "lg:col-span-1"
+          )}>
+            {(scriptState === 'valid' || isHqActive || isAudioReady) ? (
+              <div className="space-y-8 lg:sticky lg:top-24 pb-12">
+                {/* PURGE ASSIGNMENTS ON HQ SUBMISSION OR WHEN AUDIO IS READY */}
+                {!isHqActive && !isAudioReady && !(isGenerating && generationMode === 'high-quality') && (
+                    <CharacterAssignments />
+                )}
+                
+                <GenerationSettings />
+                
+                {/* Progress bar card for standard fast mode only while generating */}
+                {generationMode === 'fast' && (isGenerating || isFinalizing) && <GenerationProgress />}
+              </div>
+            ) : (
+                <StudioDemoCard 
+                  title="STUDIO ENGINE READY" 
+                  badgeText="INSTANT VOICE SYNTHESIS" 
+                  subtitle="Analyze script to activate neural voices" 
+                />
+            )}
+          </div>
+
+        </div>
+
+        {/* Dialogues placed at the very bottom below Generate button & all controls */}
+        {showGeneratedLines && (
+          <div className="w-full pt-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <GeneratedLines />
+          </div>
+        )}
+
+      </div>
+    </div>
+  );
+}
+
+export default function StudioPage() {
+    return (
+        <StudioProvider>
+            <StudioContent />
+        </StudioProvider>
+    );
+}

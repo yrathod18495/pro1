@@ -1,0 +1,12 @@
+fastapi
+uvicorn
+requests
+firebase-admin>=6.5.0
+google-cloud-firestore>=2.16.0
+google-auth
+boto3
+lameenc
+gradio_client
+google-genai
+Pillow
+pydub

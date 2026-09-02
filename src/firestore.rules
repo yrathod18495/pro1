@@ -1,0 +1,314 @@
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---------- FUNCTIONS ----------
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return request.auth != null && (
+        request.auth.token.role == 'admin' ||
+        request.auth.token.email in ['toonday378@gmail.com', 'yrathod18495@gmail.com', 'Yashsharma4638@gmail.com', 'abcdtoon30@gmail.com', '12labofficial@gmail.com']
+      );
+    }
+
+    // ---------- APPLICATION SETTINGS ----------
+    match /settings/maintenance {
+      allow get: if true;
+      allow list, write: if isAdmin();
+    }
+
+    match /settings/ads {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    match /settings/app {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // ---------- TOOL SETTINGS ----------
+    match /toolSettings/{toolId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ---------- PROJECTS & PARTITIONED PROJECTS ----------
+    match /projects/{userId}/userProjects/{projectId} {
+      allow read, write: if isOwner(userId) || isAdmin();
+    }
+    match /projects/{projectId} {
+      allow read, update, delete: if request.auth != null && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+    }
+
+    match /pro_projects/{userId}/userProjects/{projectId} {
+      allow read, write: if isOwner(userId) || isAdmin();
+    }
+    match /pro_projects/{projectId} {
+      allow read, update, delete: if request.auth != null && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+    }
+
+    match /chatterbox_projects/{userId}/userProjects/{projectId} {
+      allow read, write: if isOwner(userId) || isAdmin();
+    }
+    match /chatterbox_projects/{projectId} {
+      allow read, update, delete: if request.auth != null && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+    }
+
+    // ---------- THUMBNAIL PROJECTS ----------
+    match /thumbnailProjects/{userId}/userProjects/{projectId} {
+      allow read, write: if isOwner(userId) || isAdmin();
+    }
+    match /thumbnail_projects/{userId}/userProjects/{projectId} {
+      allow read, write: if isOwner(userId) || isAdmin();
+    }
+    match /thumbnailProjects/{projectId} {
+      allow read, update, delete: if request.auth != null && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+    }
+    match /thumbnail_projects/{projectId} {
+      allow read, update, delete: if request.auth != null && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+    }
+
+    // ---------- VOICE INDIA REQUESTS ----------
+    match /voiceIndiaRequests/{requestId} {
+      allow create: if isSignedIn()
+        && request.resource.data.userId == request.auth.uid;
+
+      allow update: if isSignedIn()
+        && request.resource.data.userId == request.auth.uid
+        && !request.resource.data.diff(resource.data)
+          .affectedKeys()
+          .hasAny(['status', 'adminNotes']);
+
+      allow get: if isOwner(resource.data.userId) || isAdmin();
+      allow list: if isAdmin();
+    }
+    
+    // ---------- WITHDRAWAL REQUESTS ----------
+    match /withdrawalRequests/{requestId} {
+      allow read, list, create, update, delete: if isAdmin();
+    }
+
+    // ---------- MUSIC PROJECTS ----------
+    match /music_project/{userId}/userProjects/{projectId} {
+      allow read, write: if isOwner(userId) || isAdmin();
+    }
+    match /music_project/{projectId} {
+      allow read, update, delete: if request.auth != null && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+    }
+
+    // ---------- SCRIPT PROJECTS (SECURED) ----------
+    match /script_projects/{userId}/userProjects/{projectId} { 
+      allow read, write: if isOwner(userId) || isAdmin(); 
+    }
+    match /script_projects/{projectId} { 
+      allow read, update, delete: if request.auth != null && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+    }
+
+
+    // ---------- DEVICES (Device Fingerprinting & Anti-Abuse) ----------
+    match /devices/{deviceId} {
+      allow get: if isSignedIn();
+      allow list: if isAdmin();
+      allow write: if false; // Strict: Writes only permitted through trusted server-side actions
+    }
+
+    // ---------- USERS ----------
+    match /users/{userId} {
+
+      allow get: if isOwner(userId) || isAdmin();
+      allow list: if isAdmin();
+      allow create: if isOwner(userId);
+
+      allow update: if isOwner(userId)
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+          'role', 'email', 'uid', 'createdAt', 'hasMadeFirstPurchase', 'isAltAccount', 'deviceRestricted', 'primaryAccountEmail', 'registeredDeviceId'
+        ])
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'name', 'photoURL', 'credits', 'updatedAt'
+        ])
+        && (
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['credits']) ||
+          (
+            request.resource.data.credits is number &&
+            request.resource.data.credits >= 0 &&
+            request.resource.data.credits < resource.data.credits
+          )
+        );
+
+      allow delete: if false;
+
+      // ---- NOTIFICATIONS ----
+      // This path holds a single document 'user_notifications' with an array of notifications.
+      match /notifications/user_notifications {
+        // Users can read their own notifications document.
+        allow get: if isOwner(userId);
+
+        // Writes (set with merge, or update with arrayUnion) are done by server-side
+        // logic (admin actions, webhooks) or by the user themselves (e.g., marking as read).
+        allow write: if isOwner(userId) || isAdmin();
+
+        // No one should be listing the 'notifications' collection or deleting the document.
+        allow list, delete: if false;
+      }
+      
+      // ---- CREDIT HISTORY ----
+      match /creditHistory/{docId} {
+        allow get, list: if isOwner(userId) || isAdmin();
+        allow write: if false; // All writes are done via trusted server actions
+      }
+
+      // ---- THUMBNAILS ----
+      match /thumbnails/{thumbnailId} {
+        allow read, write: if isOwner(userId) || isAdmin();
+      }
+    }
+
+    // ---------- PENDING PAYMENTS ----------
+    match /pendingPayments/{paymentId} {
+      allow create: if isSignedIn();
+      allow read, list, update, delete: if isAdmin();
+    }
+
+    // ---------- PENDING PROJECTS ----------
+    match /pendingProjects/{projectId} {
+      allow create: if isSignedIn()
+        && request.resource.data.userId == request.auth.uid;
+
+      allow get: if (
+        isSignedIn() && resource.data.userId == request.auth.uid
+      ) || isAdmin();
+
+      allow list: if isSignedIn();
+
+      allow update, delete: if isAdmin();
+    }
+
+    // ---------- LIVE CHAT ----------
+    match /chats/{userId} {
+      allow read, write: if isOwner(userId) || isAdmin();
+
+      match /messages/{messageId} {
+        allow read: if isOwner(userId) || isAdmin();
+
+        allow create: if (
+          isOwner(userId) &&
+          request.resource.data.senderId == userId
+        ) || isAdmin();
+
+        allow delete: if (
+          isOwner(userId) &&
+          resource.data.senderId == userId
+        ) || isAdmin();
+
+        allow update: if false;
+      }
+    }
+
+    // ---------- PROMO CODES ----------
+    match /promoCodes/{codeId} {
+      allow create, list: if isAdmin();
+      allow read: if isSignedIn();
+
+      allow update: if isAdmin() || (
+        isSignedIn()
+        && resource.data.status == 'available'
+        && request.resource.data.status == 'redeemed'
+        && request.resource.data.redeemedBy == request.auth.uid
+        && request.resource.data.diff(resource.data)
+          .affectedKeys()
+          .hasOnly([
+            'status',
+            'redeemedBy',
+            'redeemedAt',
+            'redeemedByEmail'
+          ])
+      );
+
+      allow delete: if false;
+    }
+
+    // ---------- PRODUCTS ----------
+    match /products/{productId} {
+
+      allow get, list: if isSignedIn();
+
+      allow create: if isAdmin()
+        || (
+          isSignedIn() &&
+          request.resource.data.ownerId == request.auth.uid
+        );
+
+      allow update: if isAdmin()
+        || (
+          isSignedIn() &&
+          request.resource.data.ownerId == request.auth.uid
+        );
+
+      allow delete: if isAdmin();
+    }
+
+    // ---------- STORE HISTORY (SECURED - BUYER & ADMIN ONLY) ----------
+    match /storeHistory/{historyId} {
+
+      // create only for self
+      allow create: if isSignedIn()
+        && request.resource.data.userId == request.auth.uid;
+
+      // get single doc (own buyer or admin only)
+      allow get: if isAdmin()
+        || (
+          isSignedIn() &&
+          resource.data.userId == request.auth.uid
+        );
+
+      // list only own buyer docs or admin (sellers cannot snoop/list other buyers)
+      allow list: if isAdmin()
+        || (
+          isSignedIn() &&
+          (
+            resource.data.userId == request.auth.uid ||
+            resource.data.sellerId == request.auth.uid
+          )
+        );
+
+      // admin only
+      allow update, delete: if isAdmin();
+    }
+
+    // ---------- PENDING ORDERS (BUYER & ADMIN ONLY) ----------
+    match /pendingOrders/{orderId} {
+      allow create: if isSignedIn()
+        && request.resource.data.buyerId == request.auth.uid;
+
+      allow get, list: if isAdmin()
+        || (
+          isSignedIn() &&
+          resource.data.buyerId == request.auth.uid
+        );
+
+      allow update, delete: if isAdmin();
+    }
+
+    // ---------- GLOBAL ADMIN FALLBACK ----------
+    match /{document=**} {
+      allow read: if isAdmin();
+      allow write: if isAdmin();
+    }
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "name": "12Labs - AI Voice Generation & Content Studio",
+  "short_name": "12Labs",
+  "description": "The ultimate AI toolkit for Indian creators. Generate high-quality AI voices, create YouTube SEO content, design thumbnails, and write scripts—all in one place.",
+  "icons": [
+    {
+      "src": "/icon-192×192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512×512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "theme_color": "#ffffff",
+  "background_color": "#ffffff",
+  "start_url": "/",
+  "display": "standalone",
+  "scope": "/"
+}

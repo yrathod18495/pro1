@@ -1,0 +1,363 @@
+{
+  "rules": {
+    "admin": {
+      "config": {
+        ".read": "auth != null && (root.child('admins').child(auth.uid).val() === true || auth.token.email === '12labofficial@gmail.com')",
+        ".write": "auth != null && (root.child('admins').child(auth.uid).val() === true || auth.token.email === '12labofficial@gmail.com')"
+      }
+    },
+    "admins": {
+      ".read": "auth != null",
+      ".write": "auth != null && auth.token.email === '12labofficial@gmail.com'"
+    },
+    "limit": {
+      ".read": true,
+      ".write": "auth != null && (root.child('admins').child(auth.uid).val() === true || auth.token.email === '12labofficial@gmail.com')"
+    },
+    "chats": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      ".indexOn": ["lastMessageTimestamp", "isReadByAdmin"],
+      "$userId": {
+        "messages": {
+          ".indexOn": ["timestamp"]
+        }
+      }
+    },
+    "dailySummaries": {
+      ".read": "auth != null && (root.child('admins').child(auth.uid).val() === true || auth.token.email === '12labofficial@gmail.com')",
+      ".write": "auth != null && (root.child('admins').child(auth.uid).val() === true || auth.token.email === '12labofficial@gmail.com')"
+    },
+    "dailyTickets": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    "modelUsage": {
+      ".read": "auth != null && (root.child('admins').child(auth.uid).val() === true || auth.token.email === '12labofficial@gmail.com')",
+      ".write": "auth != null"
+    },
+    "tempThumbnailGenerations": {
+      "$userId": {
+        ".read": "auth != null && (auth.uid === $userId || root.child('admins').child(auth.uid).val() === true)",
+        ".write": "auth != null && (auth.uid === $userId || root.child('admins').child(auth.uid).val() === true)",
+        "$mappingId": {
+          ".read": "auth != null && (auth.uid === $userId || root.child('admins').child(auth.uid).val() === true)",
+          ".write": "auth != null && (auth.uid === $userId || root.child('admins').child(auth.uid).val() === true)"
+        }
+      }
+    },
+    "tempMusicGenerations": {
+      "$userId": {
+        ".read": "auth != null && (auth.uid === $userId || root.child('admins').child(auth.uid).val() === true)",
+        ".write": "auth != null && (auth.uid === $userId || root.child('admins').child(auth.uid).val() === true)",
+        "$mappingId": {
+          ".read": "auth != null && (auth.uid === $userId || root.child('admins').child(auth.uid).val() === true)",
+          ".write": "auth != null && (auth.uid === $userId || root.child('admins').child(auth.uid).val() === true)"
+        }
+      }
+    },
+    "tempScriptGenerations": {
+      "$userId": {
+        ".read": "auth != null && (auth.uid === $userId || root.child('admins').child(auth.uid).val() === true)",
+        ".write": "auth != null && (auth.uid === $userId || root.child('admins').child(auth.uid).val() === true)",
+        "$scriptId": {
+          ".read": "auth != null && (auth.uid === $userId || root.child('admins').child(auth.uid).val() === true)",
+          ".write": "auth != null && (auth.uid === $userId || root.child('admins').child(auth.uid).val() === true)"
+        }
+      }
+    },
+    "UserSeoHistory": {
+      "$userId": {
+        ".read": "auth != null && (auth.uid === $userId || root.child('admins').child(auth.uid).val() === true)",
+        ".write": "auth != null && (auth.uid === $userId || root.child('admins').child(auth.uid).val() === true)",
+        "$mappingId": {
+          ".read": "auth != null && (auth.uid === $userId || root.child('admins').child(auth.uid).val() === true)",
+          ".write": "auth != null && (auth.uid === $userId || root.child('admins').child(auth.uid).val() === true)"
+        }
+      }
+    },
+    "creditHistory": {
+      "$userId": {
+        ".read": "auth != null && (auth.uid === $userId || root.child('admins').child(auth.uid).val() === true)",
+        ".write": "auth != null && auth.uid === $userId",
+        "$historyId": {
+          ".write": "auth != null && auth.uid === $userId"
+        }
+      }
+    },
+    "publicMusicLibrary": {
+      ".read": true,
+      "$musicId": {
+        ".write": "auth != null && (root.child('admins').child(auth.uid).val() === true || auth.token.email === '12labofficial@gmail.com')"
+      }
+    },
+    "users": {
+      "$userId": {
+        "library_selections": {
+          ".read": "auth != null && (auth.uid === $userId || root.child('admins').child(auth.uid).val() === true)",
+          ".write": "auth != null && (auth.uid === $userId || root.child('admins').child(auth.uid).val() === true)"
+        },
+        "privateMusic": {
+          "$musicId": {
+            ".read": "auth != null && (auth.uid === $userId || root.child('admins').child(auth.uid).val() === true)",
+            ".write": "auth != null && (auth.uid === $userId || root.child('admins').child(auth.uid).val() === true)"
+          }
+        }
+      }
+    },
+    "analysisJobs": {
+      "$userId": {
+        ".read": "auth != null && (auth.uid === $userId || root.child('admins').child(auth.uid).val() === true)",
+        ".write": "auth != null && (auth.uid === $userId || root.child('admins').child(auth.uid).val() === true)"
+      }
+    },
+    "newstudio_projects": {
+      "$userId": {
+        ".read": "auth != null && (auth.uid === $userId || root.child('admins').child(auth.uid).val() === true)",
+        ".write": "auth != null && (auth.uid === $userId || root.child('admins').child(auth.uid).val() === true)",
+        "$projectId": {
+          ".read": "auth != null && (auth.uid === $userId || root.child('admins').child(auth.uid).val() === true)",
+          ".write": "auth != null && (auth.uid === $userId || root.child('admins').child(auth.uid).val() === true)"
+        }
+      }
+    },
+    "userScriptAnalysisLimits": {
+      ".read": true,
+      "$userId": {
+        "$date": {
+          ".write": "auth != null && auth.uid === $userId && !data.exists()"
+        }
+      }
+    },
+    "userScriptGenerationLimits": {
+      ".read": true,
+      "$userId": {
+        "$date": {
+          ".write": "auth != null && auth.uid === $userId && !data.exists()"
+        }
+      }
+    },
+    "thumbnailDailyLimits": {
+      ".read": true,
+      "$userId": {
+        "$date": {
+          ".write": "auth != null && auth.uid === $userId && !data.exists()"
+        }
+      }
+    },
+    "userDailyLimits": {
+      ".read": true,
+      "$userId": {
+        "$date": {
+          "scriptGenerations": {
+            ".write": "auth != null && auth.uid === $userId && !data.exists()"
+          }
+        }
+      }
+    },
+    "userTrials": {
+      "$trialType": {
+        "$userId": {
+          ".read": "auth != null && (auth.uid === $userId || root.child('admins').child(auth.uid).val() === true)",
+          ".write": "auth != null && (auth.uid === $userId || root.child('admins').child(auth.uid).val() === true)"
+        }
+      }
+    },
+    "cloningHistory": {
+      "$userId": {
+        ".read": "auth != null && (auth.uid === $userId || root.child('admins').child(auth.uid).val() === true)",
+        ".write": "auth != null && auth.uid === $userId",
+        "$historyId": {
+          ".write": "auth != null && auth.uid === $userId"
+        }
+      }
+    },
+    "clone_studio": {
+      ".read": "auth != null",
+      ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      "$userId": {
+        ".read": "auth != null",
+        ".write": "auth != null && root.child('admins').child(auth.uid).val() === true"
+      }
+    },
+    "affiliateCodes": {
+      ".indexOn": ["affiliateEmail"],
+      "$code": {
+        ".read": "auth != null && (data.child('ownerUid').val() === auth.uid || root.child('admins').child(auth.uid).val() === true || auth.token.email === '12labofficial@gmail.com')",
+        ".write": "auth != null && (root.child('admins').child(auth.uid).val() === true || auth.token.email === '12labofficial@gmail.com')"
+      }
+    },
+    "affiliateEarnings": {
+      "$code": {
+        ".read": "auth != null && (data.child('ownerUid').val() === auth.uid || root.child('admins').child(auth.uid).val() === true)",
+        ".write": "auth != null && root.child('admins').child(auth.uid).val() === true"
+      }
+    },
+    "affiliateTransactions": {
+      ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      ".write": false
+    },
+    "affiliateWithdrawals": {
+      ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      ".write": false
+    },
+    "pending_projects": {
+      ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      ".indexOn": ["status"],
+      "$projectId": {
+        ".read": "auth != null && (!data.exists() || data.child('userId').val() === auth.uid || root.child('admins').child(auth.uid).val() === true)",
+        ".write": "auth != null && (newData.child('userId').val() === auth.uid || data.child('userId').val() === auth.uid || root.child('admins').child(auth.uid).val() === true)"
+      }
+    },
+    "pending_script_analysis": {
+      ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      "$userId": {
+        "$jobId": {
+          ".read": "auth != null && (auth.uid === $userId || root.child('admins').child(auth.uid).val() === true)",
+          ".write": "auth != null && (auth.uid === $userId || root.child('admins').child(auth.uid).val() === true)"
+        }
+      }
+    },
+    "new_ai_pending_projects": {
+      ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      "$projectId": {
+        ".read": "auth != null && (!data.exists() || data.child('userId').val() === auth.uid || root.child('admins').child(auth.uid).val() === true)",
+        ".write": "auth != null && (newData.child('userId').val() === auth.uid || data.child('userId').val() === auth.uid || root.child('admins').child(auth.uid).val() === true)"
+      }
+    },
+    "pro_projects": {
+      ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      "$projectId": {
+        ".read": "auth != null && (!data.exists() || data.child('userId').val() === auth.uid || root.child('admins').child(auth.uid).val() === true)",
+        ".write": "auth != null && (newData.child('userId').val() === auth.uid || data.child('userId').val() === auth.uid || root.child('admins').child(auth.uid).val() === true)"
+      }
+    },
+    "projectEdits": {
+      "$projectId": {
+        ".read": "auth != null && (!data.exists() || data.child('ownerId').val() === auth.uid || root.child('admins').child(auth.uid).val() === true)",
+        ".write": "auth != null && (data.child('ownerId').val() === auth.uid || newData.child('ownerId').val() === auth.uid || root.child('admins').child(auth.uid).val() === true)"
+      }
+    },
+
+    "voice_replacement": {
+      ".read": "auth != null && query.orderByChild == 'userId' && query.equalTo == auth.uid",
+      "$jobId": {
+        ".read": "auth != null && (data.child('userId').val() === auth.uid || root.child('admins').child(auth.uid).val() === true)",
+        ".write": "auth != null && (newData.child('userId').val() === auth.uid || data.child('userId').val() === auth.uid || root.child('admins').child(auth.uid).val() === true)"
+      },
+      ".indexOn": ["userId", "projectId", "status", "timestamp"]
+    },
+    "pendingSellerProfiles": {
+      ".read": "auth != null",
+      "$userId": {
+        ".write": "auth != null && (auth.uid === $userId || root.child('admins').child(auth.uid).val() === true)"
+      }
+    },
+    "sellerProfiles": {
+      ".read": true,
+      "$userId": {
+        ".write": "auth != null && (auth.uid === $userId || root.child('admins').child(auth.uid).val() === true)"
+      }
+    },
+    "onlineUsers": {
+      ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      "$userId": {
+        ".write": "auth != null && (auth.uid === $userId || root.child('admins').child(auth.uid).val() === true)"
+      }
+    },
+    "pushSubscriptions": {
+      "$userId": {
+        ".read": "auth != null && (auth.uid === $userId || root.child('admins').child(auth.uid).val() === true)",
+        ".write": "auth != null && (auth.uid === $userId || root.child('admins').child(auth.uid).val() === true)"
+      }
+    },
+    "productComments": {
+      "$productId": {
+        ".read": true,
+        "$commentId": {
+          ".write": "auth != null && (data.child('userId').val() === auth.uid || root.child('admins').child(auth.uid).val() === true)"
+        }
+      }
+    },
+    "productLikes": {
+      "$productId": {
+        ".read": true,
+        "$userId": {
+          ".write": "auth != null && auth.uid === $userId"
+        }
+      }
+    },
+    "pendingProducts": {
+      ".read": "auth != null"
+    },
+    "storeProducts": {
+      ".read": "auth != null",
+      "$productId": {
+        ".write": "auth != null && (auth.uid === data.child('sellerId').val() || auth.uid === newData.child('sellerId').val() || root.child('admins').child(auth.uid).val() === true)"
+      }
+    },
+    "userThumbnails": {
+      "$userId": {
+        ".read": "auth != null && auth.uid === $userId",
+        "hasGeneratedFreeThumbnail": {
+          ".write": "auth != null && auth.uid === $userId && !data.exists()",
+          ".validate": "newData.isBoolean() && newData.val() === true"
+        }
+      }
+    },
+    "feedback": {
+      ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      "$userId": {
+        ".write": "auth != null && auth.uid === $userId",
+        "$date": {
+          ".write": "auth != null && auth.uid === $userId && !data.exists()"
+        }
+      }
+    },
+    "carts": {
+      "$userId": {
+        ".read": "auth != null && (auth.uid === $userId || root.child('admins').child(auth.uid).val() === true)",
+        ".write": "auth != null && (auth.uid === $userId || root.child('admins').child(auth.uid).val() === true)",
+        "$productId": {
+          ".write": "auth != null && (auth.uid === $userId || root.child('admins').child(auth.uid).val() === true)"
+        }
+      }
+    },
+    "settings": {
+      ".read": true,
+      ".write": "auth != null && (root.child('admins').child(auth.uid).val() === true || auth.token.email === '12labofficial@gmail.com')"
+    },
+    "dailyFreeScriptGenerations": {
+      ".read": true,
+      ".write": "auth != null && (root.child('admins').child(auth.uid).val() === true || auth.token.email === '12labofficial@gmail.com')",
+      "$date": {
+        ".read": true,
+        "count": {
+          ".read": true,
+          ".write": "auth != null && (root.child('admins').child(auth.uid).val() === true || auth.token.email === '12labofficial@gmail.com')"
+        }
+      }
+    },
+    "scriptHistory": {
+      "$userId": {
+        ".read": "auth != null && (auth.uid === $userId || root.child('admins').child(auth.uid).val() === true)",
+        ".write": "auth != null && (auth.uid === $userId || root.child('admins').child(auth.uid).val() === true)"
+      }
+    },
+    "editingjobs": {
+      ".read": true,
+      "$jobId": {
+        ".read": true,
+        ".write": "auth != null && root.child('admins').child(auth.uid).val() === true"
+      }
+    },
+    "toolSettings": {
+      ".read": true,
+      ".write": "auth != null && (root.child('admins').child(auth.uid).val() === true || auth.token.email === '12labofficial@gmail.com')"
+    }
+  }
+}

@@ -1,0 +1,635 @@
+
+'use client';
+
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { Button } from '@/components/ui/button';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Store, MoreVertical, Trash2, ShoppingCart, Gem, Play, Video, Clock, Eye, ChevronDown, ChevronUp, Package, Sparkles, X, Share2, Edit, CheckCircle } from 'lucide-react';
+import Link from 'next/link';
+import { Skeleton } from '@/components/ui/skeleton';
+import { initializeFirebase } from '@/firebase';
+import { ref, get, onValue } from 'firebase/database';
+import { onRtdbValue } from '@/lib/rtdb-listener';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import type { StoreProduct, SellerProfile } from '@/lib/types';
+import { cn, generateAvatarColor, getDisplayUrl } from '@/lib/utils';
+import { useSearchParams, useRouter } from 'next/navigation';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { useToast } from '@/hooks/use-toast';
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
+import { useAuth } from '@/context/auth-provider';
+import { useCart } from '@/context/cart-provider';
+import { adminDeleteProduct, adminCleanCorruptedProducts } from './admin-actions';
+import { Badge } from '@/components/ui/badge';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
+import { getProductDetails } from './[productId]/actions';
+import { VerifiedBadge } from '@/components/verified-badge';
+import ProductView from '@/components/store/product-view';
+import { AdminEditProductDialog } from '@/components/store/admin-edit-product-dialog';
+import Header from '@/components/header';
+
+/**
+ * Optimized Product Overlay Component for Zero-Lag Interaction
+ */
+function ProductOverlay({ 
+    isOpen, 
+    onClose, 
+    isLoading, 
+    product, 
+    seller 
+}: { 
+    isOpen: boolean; 
+    onClose: () => void; 
+    isLoading: boolean; 
+    product: StoreProduct | null; 
+    seller: SellerProfile | null;
+}) {
+    const [dragOffset, setDragOffset] = useState(0);
+    const [isClosing, setIsClosing] = useState(false);
+    const touchStartY = useRef(0);
+    const isDragging = useRef(false);
+    const scrollRef = useRef<HTMLDivElement>(null);
+
+    // Dynamic scale for smooth scaling effect
+    const scale = Math.max(0.85, 1 - (dragOffset / 1000));
+    const opacity = Math.max(0, 1 - (dragOffset / 400));
+
+    const handleTouchStart = (e: React.TouchEvent) => {
+        const viewport = scrollRef.current?.querySelector('[data-radix-scroll-area-viewport]');
+        const isAtTop = viewport ? viewport.scrollTop <= 0 : true;
+
+        if (isAtTop) {
+            touchStartY.current = e.touches[0].clientY;
+            isDragging.current = true;
+        }
+    };
+
+    const handleTouchMove = (e: React.TouchEvent) => {
+        if (!isDragging.current) return;
+        const currentY = e.touches[0].clientY;
+        const deltaY = currentY - touchStartY.current;
+        
+        if (deltaY > 0) {
+            // If dragging down from top, prevent default scrolling and move sheet
+            setDragOffset(deltaY);
+            if (e.cancelable) e.preventDefault();
+        } else if (deltaY < 0) {
+            // If dragging up, don't interfere with normal scrolling
+            isDragging.current = false;
+            setDragOffset(0);
+        }
+    };
+
+    const handleTouchEnd = () => {
+        if (!isDragging.current) return;
+        isDragging.current = false;
+        
+        if (dragOffset > 150) {
+            triggerClose();
+        } else {
+            // Spring back animation
+            setDragOffset(0);
+        }
+    };
+
+    const triggerClose = () => {
+        setIsClosing(true);
+        setTimeout(() => {
+            onClose();
+            setIsClosing(false);
+            setDragOffset(0);
+        }, 300);
+    };
+
+    if (!isOpen && !isClosing) return null;
+
+    return (
+        <Sheet open={isOpen} onOpenChange={(open) => !open && triggerClose()}>
+            <SheetContent 
+                side="bottom" 
+                className={cn(
+                    "h-[100dvh] w-full p-0 border-none shadow-none bg-background overflow-hidden flex flex-col transition-all duration-300 ease-out",
+                    isClosing ? "scale-90 opacity-0 translate-y-full" : "scale-100 opacity-100 translate-y-0"
+                )}
+                style={{ 
+                    transform: dragOffset > 0 ? `translateY(${dragOffset}px) scale(${scale})` : undefined,
+                    opacity: dragOffset > 0 ? opacity : undefined,
+                    borderRadius: dragOffset > 0 ? '2.5rem' : '0'
+                }}
+            >
+                <SheetHeader className="sr-only">
+                    <SheetTitle>{product?.title || 'Product Details'}</SheetTitle>
+                    <SheetDescription>Viewing detailed information about {product?.title}</SheetDescription>
+                </SheetHeader>
+
+                {/* Fixed Header with Drag Handle */}
+                <div 
+                    className="w-full flex flex-col items-center pt-2 pb-1 shrink-0 bg-background/80 backdrop-blur-xl z-[60] sticky top-0 touch-none"
+                    onTouchStart={handleTouchStart}
+                    onTouchMove={handleTouchMove}
+                    onTouchEnd={handleTouchEnd}
+                >
+                    <div className="w-12 h-1.5 bg-muted-foreground/20 rounded-full mb-3" />
+                    <div className="w-full flex justify-between items-center px-6 h-10">
+                        <Badge variant="outline" className="font-black text-[9px] uppercase tracking-widest border-primary/20 text-primary/60">
+                            {isLoading ? 'Syncing...' : product?.productType}
+                        </Badge>
+                        <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="rounded-full h-10 w-10 bg-muted/50 transition-transform active:scale-90" 
+                            onClick={triggerClose}
+                        >
+                            <X className="h-5 w-5" />
+                        </Button>
+                    </div>
+                </div>
+
+                {/* Content Area with Global Touch Support for Pull-to-Dismiss */}
+                <ScrollArea 
+                    ref={scrollRef} 
+                    className="flex-1"
+                    onTouchStart={handleTouchStart}
+                    onTouchMove={handleTouchMove}
+                    onTouchEnd={handleTouchEnd}
+                >
+                    <div className="relative">
+                        {isLoading || !product ? (
+                            <div className="p-8 space-y-8 animate-in fade-in duration-500">
+                                <Skeleton className="aspect-video w-full rounded-[2.5rem]" />
+                                <div className="space-y-4">
+                                    <Skeleton className="h-10 w-3/4 rounded-xl" />
+                                    <Skeleton className="h-24 w-full rounded-xl" />
+                                    <Skeleton className="h-48 w-full rounded-xl" />
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="pb-32">
+                                <ProductView 
+                                    initialProduct={product} 
+                                    initialSeller={seller} 
+                                />
+                            </div>
+                        )}
+                    </div>
+                </ScrollArea>
+                
+                {/* Pull-to-dismiss Label (Visible when dragging) */}
+                <div 
+                    className={cn(
+                        "absolute bottom-10 left-0 right-0 flex justify-center transition-opacity duration-300 pointer-events-none z-[70]",
+                        dragOffset > 50 ? "opacity-100" : "opacity-0"
+                    )}
+                >
+                    <Badge className="bg-black/60 text-white backdrop-blur-md px-6 py-2 rounded-full font-black uppercase text-[10px] tracking-[0.2em] shadow-2xl">
+                        Release to Close
+                    </Badge>
+                </div>
+            </SheetContent>
+        </Sheet>
+    );
+}
+
+function ProductCard({ 
+    product, 
+    seller, 
+    isPurchasedByMe,
+    globalDiscount = 0,
+    onSelect,
+    onAdminAction 
+}: { 
+    product: StoreProduct, 
+    seller?: SellerProfile, 
+    isPurchasedByMe?: boolean,
+    globalDiscount?: number,
+    onSelect: (id: string) => void,
+    onAdminAction: () => void 
+}) {
+    const { user } = useAuth(); 
+    const { addToCart } = useCart(); 
+    const { toast } = useToast();
+    const [isExpanded, setIsExpanded] = useState(false); 
+    const [isEditOpen, setIsEditOpen] = useState(false);
+    const avatarColor = generateAvatarColor(product.sellerName || product.sellerId); 
+    const isAdmin = user?.role === 'admin'; 
+    const isVerified = seller?.isVerified || false;
+    const displayImageUrl = getDisplayUrl(product.previewImage || product.previews?.[0]?.url); 
+    const timeAgo = formatDistanceToNowShort(product.createdAt);
+    
+    const isSold = product.status === 'sold' || (product as any).isSold === true || Boolean((product as any).buyerUid);
+    const isOwner = isPurchasedByMe || (user?.uid && (product as any).buyerUid === user.uid);
+
+    const { effectivePrice, originalPrice, hasDiscount, discountPercentage, saveAmount } = useMemo(() => {
+        const basePrice = Number(product.price || 0);
+        const origPrice = Number(product.originalPrice || 0);
+
+        let finalEffective = basePrice;
+        let finalOriginal = origPrice > basePrice ? origPrice : basePrice;
+
+        if (isVerified && globalDiscount > 0) {
+            finalEffective = Math.floor(basePrice * (1 - globalDiscount / 100));
+            finalOriginal = basePrice;
+        } else if (origPrice > basePrice) {
+            finalEffective = basePrice;
+            finalOriginal = origPrice;
+        }
+
+        const isDisc = finalOriginal > finalEffective;
+        const discountPct = isDisc ? Math.round(((finalOriginal - finalEffective) / finalOriginal) * 100) : 0;
+        const saved = finalOriginal - finalEffective;
+
+        return {
+            effectivePrice: finalEffective,
+            originalPrice: finalOriginal,
+            hasDiscount: isDisc,
+            discountPercentage: discountPct,
+            saveAmount: saved
+        };
+    }, [product.price, product.originalPrice, isVerified, globalDiscount]);
+
+    const handleAddToCart = (e: React.MouseEvent) => { 
+        e.stopPropagation(); 
+        addToCart({ ...product, price: effectivePrice, sellerIsVerified: isVerified } as any); 
+    };
+
+    const handleShare = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        const shareUrl = `${window.location.origin}/store/${product.id}`;
+        if (navigator.share) {
+            navigator.share({
+                title: product.title,
+                text: product.description,
+                url: shareUrl,
+            }).catch(() => {});
+        } else {
+            navigator.clipboard.writeText(shareUrl);
+            toast({ title: 'Link Copied', description: 'Product link copied to clipboard!' });
+        }
+    };
+
+    const isStory = product.productType === 'YouTube Story';
+
+    return (
+        <div className="flex flex-col w-full bg-background mb-8 group animate-in fade-in duration-500">
+            <div 
+                onClick={() => onSelect(product.id)}
+                className="relative block w-full aspect-video overflow-hidden bg-muted/30 cursor-pointer rounded-[2rem] border-primary/5 shadow-sm group-hover:shadow-xl transition-all duration-500"
+            >
+                <img src={displayImageUrl || 'https://res.cloudinary.com/dptryoeis/image/upload/v1772590885/c10h0lknqblj7kfxp5qr.png'} alt={product.title} className="w-full h-full object-contain disable-long-press-download transition-transform duration-700 group-hover:scale-105" loading="lazy" />
+                {isStory && (
+                    <div className="absolute inset-0 bg-black/10 flex items-center justify-center transition-opacity pointer-events-none z-10">
+                        <div className="p-4 bg-white/20 backdrop-blur-xl rounded-full border border-white/40 shadow-2xl scale-100 group-hover:scale-110 transition-transform duration-500">
+                            <Play className="h-10 w-10 text-white fill-current" />
+                        </div>
+                    </div>
+                )}
+                <div className="absolute bottom-3 right-3 flex flex-col items-end gap-1 z-20">
+                    {isOwner ? (
+                        <Badge className="bg-emerald-600 text-white font-black text-[10px] px-3 h-8 border-none rounded-xl shadow-2xl leading-none flex items-center gap-1 uppercase">
+                            <CheckCircle className="h-3 w-3" /> OWNED BY YOU
+                        </Badge>
+                    ) : isSold ? (
+                        <Badge variant="destructive" className="font-black text-[10px] px-3 h-8 border-none rounded-xl shadow-2xl leading-none uppercase">
+                            SOLD OUT
+                        </Badge>
+                    ) : (
+                        <div className="flex flex-col items-end gap-1">
+                            {isVerified && globalDiscount > 0 && (
+                                <Badge variant="outline" className="bg-white/90 dark:bg-black/90 text-primary border-primary/20 font-black text-[8px] px-2 h-5 rounded-lg shadow-sm line-through opacity-60">₹{product.price}</Badge>
+                            )}
+                            <Badge className="bg-primary text-white font-black text-[12px] px-3 h-8 border-none rounded-xl shadow-2xl leading-none">₹{effectivePrice}</Badge>
+                        </div>
+                    )}
+                </div>
+                {isStory && product.duration && (
+                    <div className="absolute bottom-3 left-3 z-20">
+                        <Badge className="bg-black/90 text-white font-mono font-bold text-[10px] h-6 px-2 border-none rounded-lg flex items-center gap-1 leading-none">
+                            <Video className="h-3 w-3" />{product.duration.replace(' Minutes', '')}
+                        </Badge>
+                    </div>
+                )}
+            </div>
+
+            <div className="flex items-start gap-3 p-3 pt-4">
+                <Link href={`/seller/${product.sellerId}`} className="shrink-0 pt-0.5">
+                    <Avatar className="h-10 w-10 border shadow-sm transition-transform hover:scale-110">
+                        <AvatarImage src={getDisplayUrl(seller?.profileImageUrl)} />
+                        <AvatarFallback className={cn("font-bold text-xs", avatarColor.bg, avatarColor.text)}>{product.sellerName?.charAt(0).toUpperCase()}</AvatarFallback>
+                    </Avatar>
+                </Link>
+                <div className="flex-1 min-w-0 flex flex-col gap-0.5">
+                    <div className="flex justify-between items-start gap-2">
+                        <div onClick={() => onSelect(product.id)} className="flex-1 cursor-pointer">
+                            <h3 className="font-bold text-[15px] leading-tight line-clamp-2 text-foreground group-hover:text-primary transition-colors">{product.title}</h3>
+                        </div>
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-8 w-8 -mr-2 shrink-0 rounded-full" onClick={(e) => e.stopPropagation()}>
+                                    <MoreVertical className="h-4 w-4 text-muted-foreground" />
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-56 p-2 rounded-xl shadow-2xl">
+                                <DropdownMenuItem onClick={handleAddToCart} className="h-11 rounded-lg cursor-pointer font-bold">
+                                    <ShoppingCart className="mr-3 h-4 w-4" /> Add to Cart
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={handleShare} className="h-11 rounded-lg cursor-pointer font-bold">
+                                    <Share2 className="mr-3 h-4 w-4" /> Share Product
+                                </DropdownMenuItem>
+                                {isAdmin && (
+                                    <>
+                                        <DropdownMenuSeparator className="my-1" />
+                                        <DropdownMenuItem 
+                                            onClick={(e) => { e.stopPropagation(); setIsEditOpen(true); }} 
+                                            className="h-11 rounded-lg cursor-pointer font-bold text-primary"
+                                        >
+                                            <Edit className="mr-3 h-4 w-4" /> Admin Edit
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem 
+                                            onClick={async (e) => { 
+                                                e.stopPropagation(); 
+                                                if(window.confirm('Delete this product?')) { 
+                                                    await adminDeleteProduct(product.id); 
+                                                    onAdminAction(); 
+                                                } 
+                                            }} 
+                                            className="h-11 rounded-lg cursor-pointer text-destructive font-bold"
+                                        >
+                                            <Trash2 className="mr-3 h-4 w-4" /> Admin Delete
+                                        </DropdownMenuItem>
+                                    </>
+                                )}
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    </div>
+                    <div className="flex flex-wrap items-center text-xs text-muted-foreground font-medium">
+                        <Link href={`/seller/${product.sellerId}`} className="hover:text-foreground flex items-center gap-1">
+                            {product.sellerName}{isVerified && <VerifiedBadge className="h-3 w-3" />}
+                        </Link>
+                        <span className="mx-1.5">•</span>
+                        <span>{timeAgo}</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div className="px-3 pb-4">
+                <button className="w-full flex items-center justify-between p-2 px-3 bg-muted/40 rounded-xl group/summary cursor-pointer hover:bg-muted/60 transition-all text-left" onClick={() => setIsExpanded(!isExpanded)}>
+                    <div className="flex items-center gap-2 overflow-hidden flex-1">
+                        {isStory ? <Video className="h-3.5 w-3.5 text-red-600 shrink-0" /> : <Sparkles className="h-3.5 w-3.5 text-primary fill-current shrink-0" />}
+                        <div className="flex-1 min-w-0">
+                            <p className="text-[11px] font-bold truncate">
+                                {isStory && <span className="text-red-600 mr-1">[READY VIDEO]</span>}
+                                <span className="text-muted-foreground mr-1">{isStory ? 'Readymade Video' : product.productType} by {product.sellerName}:</span>
+                                <span className="opacity-70 font-medium">{product.description}</span>
+                            </p>
+                        </div>
+                    </div>
+                    {isExpanded ? <ChevronUp className="h-3.5 w-3.5 ml-2 text-muted-foreground shrink-0" /> : <ChevronDown className="h-3.5 w-3.5 ml-2 text-muted-foreground shrink-0" />}
+                </button>
+                {isExpanded && (
+                    <div className="mt-2 px-2 animate-in fade-in slide-in-from-top-1 duration-300">
+                        <p className="text-[12px] text-muted-foreground leading-relaxed line-clamp-3">{product.description}</p>
+                        <button onClick={() => onSelect(product.id)} className="text-[10px] font-black text-primary uppercase tracking-widest mt-2 inline-block hover:underline">View Full Details</button>
+                    </div>
+                )}
+            </div>
+
+            {isAdmin && (
+                <AdminEditProductDialog 
+                    product={product} 
+                    open={isEditOpen} 
+                    onOpenChange={setIsEditOpen} 
+                    onUpdate={onAdminAction} 
+                />
+            )}
+        </div>
+    );
+}
+
+function formatDistanceToNowShort(dateInput: any) {
+    if (!dateInput) return 'recently';
+    const date = typeof dateInput === 'string' || typeof dateInput === 'number' ? new Date(dateInput) : dateInput;
+    if (!date || isNaN(date.getTime())) return 'recently';
+    const now = new Date(); const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+    if (diffInSeconds < 60) return 'just now'; const diffInMinutes = Math.floor(diffInSeconds / 60); if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
+    const diffInHours = Math.floor(diffInMinutes / 60); if (diffInHours < 24) return `${diffInHours}h ago`;
+    const diffInDays = Math.floor(diffInHours / 24); if (diffInDays < 7) return `${diffInDays}d ago`;
+    return `${Math.floor(diffInDays / 7)}w ago`;
+}
+
+// Ranking score: newer + more engaged + verified-seller products surface first.
+// Replaces the old pure-random shuffle so the store actually ranks listings
+// instead of showing them in a random order every load.
+const rankProducts = (items: StoreProduct[]): StoreProduct[] => {
+  const now = Date.now();
+  const scored = items.map((item) => {
+    const created = item.createdAt ? new Date(item.createdAt).getTime() : now;
+    const ageInDays = Math.max(0, (now - created) / (1000 * 60 * 60 * 24));
+    // Freshness decays over ~14 days so new listings get a fair initial push
+    // without permanently outranking popular older ones.
+    const freshnessScore = Math.max(0, 14 - ageInDays) * 4;
+    const likesScore = (item.likes || 0) * 3;
+    const viewsScore = (item.views || 0) * 0.5;
+    const verifiedBoost = item.sellerIsVerified ? 15 : 0;
+    // Small deterministic jitter (based on id) so items with an identical
+    // score don't always render in the same tie-broken order.
+    const jitter = (item.id ? item.id.charCodeAt(0) % 5 : 0);
+    const score = freshnessScore + likesScore + viewsScore + verifiedBoost + jitter;
+    return { item, score };
+  });
+  scored.sort((a, b) => b.score - a.score);
+  return scored.map((s) => s.item);
+};
+
+const shuffleArray = <T,>(array: T[]): T[] => {
+  const newArray = [...array];
+  for (let i = newArray.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
+  }
+  return newArray;
+};
+
+export default function StoreHomePage() {
+  const { user } = useAuth();
+  const [products, setProducts] = useState<StoreProduct[]>([]); 
+  const [sellers, setSellers] = useState<Record<string, SellerProfile>>({}); 
+  const [isLoading, setIsLoading] = useState(true); 
+  const { database, firestore } = initializeFirebase(); 
+  const [refreshKey, setRefreshKey] = useState(0); 
+  const searchParams = useSearchParams(); 
+  const selectedType = searchParams.get('category') || 'All';
+  
+  const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
+  const [activeProduct, setActiveProduct] = useState<StoreProduct | null>(null);
+  const [activeSeller, setActiveSeller] = useState<SellerProfile | null>(null);
+  const [isOverlayLoading, setIsOverlayLoading] = useState(false);
+  const [purchasedProductIds, setPurchasedProductIds] = useState<Set<string>>(new Set());
+  const [globalDiscount, setGlobalDiscount] = useState(0);
+
+  // Fetch global discount setting
+  useEffect(() => {
+    if (!database) return;
+    const pricingRef = ref(database, 'settings/pricing');
+    return onRtdbValue(pricingRef, (snap) => {
+        if (snap.exists()) {
+            setGlobalDiscount(Number(snap.val().verifiedSellerGlobalDiscount || 0));
+        }
+    });
+  }, [database]);
+
+  // Listen to current user's paid purchase history from storeHistory
+  useEffect(() => {
+    if (!user?.uid || !firestore) {
+      setPurchasedProductIds(new Set());
+      return;
+    }
+    try {
+      const q = query(
+        collection(firestore, 'storeHistory'),
+        where('userId', '==', user.uid),
+        where('status', '==', 'paid')
+      );
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        const ids = new Set<string>();
+        snapshot.docs.forEach(doc => {
+          const pId = doc.data().productId;
+          if (pId) ids.add(pId);
+        });
+        setPurchasedProductIds(ids);
+      }, (err) => console.error("Error fetching user purchases:", err));
+
+      return () => unsubscribe();
+    } catch (e) {
+      console.error("Failed to query user store history:", e);
+    }
+  }, [user?.uid, firestore]);
+
+  useEffect(() => { 
+    if (!database) return; 
+    const fetchData = async () => { 
+        try { 
+            const productsSnapshot = await get(ref(database, 'storeProducts')); 
+            const sellersSnapshot = await get(ref(database, 'sellerProfiles')); 
+            const data = productsSnapshot.val(); 
+            
+            let hasCorrupted = false;
+            const validProducts: StoreProduct[] = [];
+
+            if (data && typeof data === 'object') {
+                for (const [id, val] of Object.entries(data)) {
+                    const item = val as any;
+                    if (item && typeof item === 'object' && item.title && item.productType) {
+                        validProducts.push({ ...item, id: item.id || id });
+                    } else {
+                        hasCorrupted = true;
+                    }
+                }
+            }
+
+            setProducts(rankProducts(validProducts)); 
+            setSellers(sellersSnapshot.val() || {}); 
+
+            // Auto-clean corrupted ghost nodes in the background if found
+            if (hasCorrupted) {
+                adminCleanCorruptedProducts().catch(() => null);
+            }
+        } finally { 
+            setIsLoading(false); 
+        } 
+    }; 
+    fetchData(); 
+  }, [database, refreshKey]);
+
+  const handleProductSelect = async (id: string) => {
+    setSelectedProductId(id);
+    setIsOverlayLoading(true);
+    try {
+        const { product, seller } = await getProductDetails(id);
+        setActiveProduct(product);
+        setActiveSeller(seller);
+    } catch (e) {
+        console.error("Failed to load product overlay:", e);
+    } finally {
+        setIsOverlayLoading(false);
+    }
+  };
+
+  const handleCloseOverlay = () => {
+    setSelectedProductId(null);
+    setActiveProduct(null);
+    setActiveSeller(null);
+  };
+
+  const filteredProducts = useMemo(() => { 
+    const isAdmin = user?.role === 'admin';
+
+    // ONLY show fresh, available, unsold products in the store
+    const visibleProducts = products.filter(product => {
+      if (!product || !product.title || !product.productType) return false;
+
+      const isSold = product.status === 'sold' || (product as any).isSold === true || Boolean((product as any).buyerUid);
+      
+      // If sold, do not show in store (purchased products belong in Purchase History/Library)
+      if (isSold) return false;
+
+      // Do not show items already bought by current user
+      if (purchasedProductIds.has(product.id)) return false;
+
+      return true;
+    });
+
+    if (selectedType === 'All') return visibleProducts; 
+    return visibleProducts.filter(product => product.productType === selectedType); 
+  }, [products, selectedType, user, purchasedProductIds]);
+
+  return (
+    <div className="flex flex-col min-h-screen bg-background">
+        <Header />
+        
+        <div className="sticky top-[64px] z-40 bg-background/95 backdrop-blur-md border-b">
+            <ScrollArea className="w-full">
+                <div className="flex items-center gap-3 p-3 px-4">
+                    {['All', 'YouTube Story', 'Hand Written Script', 'PC Character', 'Premium Background', 'Real Voice'].map((cat) => { 
+                        const isActive = selectedType === cat; 
+                        const label = cat === 'YouTube Story' ? 'Readymade Videos' : cat === 'Hand Written Script' ? 'Scripts' : cat === 'PC Character' ? 'Characters' : cat === 'Premium Background' ? 'Backgrounds' : cat; 
+                        return (
+                            <Link key={cat} href={`/store?category=${cat}`} replace className={cn("px-4 h-8 flex items-center rounded-lg text-sm font-bold whitespace-nowrap transition-colors", isActive ? "bg-foreground text-background" : "bg-muted hover:bg-muted/80")} scroll={false}>{label}</Link>
+                        ); 
+                    })}
+                </div>
+                <ScrollBar orientation="horizontal" className="invisible" />
+            </ScrollArea>
+        </div>
+
+        <main className="flex-1 w-full max-w-screen-2xl mx-auto">
+            {isLoading ? (
+                <div className="p-8 space-y-8"><Skeleton className="aspect-video w-full rounded-[2rem]" /></div>
+            ) : filteredProducts.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 md:gap-x-4">
+                    {filteredProducts.map(p => (
+                        <ProductCard 
+                            key={p.id} 
+                            product={p} 
+                            seller={sellers[p.sellerId]} 
+                            isPurchasedByMe={purchasedProductIds.has(p.id)}
+                            globalDiscount={globalDiscount}
+                            onSelect={handleProductSelect}
+                            onAdminAction={() => setRefreshKey(k => k + 1)}
+                        />
+                    ))}
+                </div>
+            ) : (
+                <div className="text-center py-32 opacity-20"><Store className="mx-auto h-20 w-20" /><h3 className="mt-6 text-3xl font-black uppercase">Archives Empty</h3></div>
+            )}
+        </main>
+
+        <ProductOverlay 
+            isOpen={!!selectedProductId}
+            onClose={handleCloseOverlay}
+            isLoading={isOverlayLoading}
+            product={activeProduct}
+            seller={activeSeller}
+        />
+    </div>
+  );
+}

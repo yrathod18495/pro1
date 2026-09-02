@@ -1,0 +1,12 @@
+[build]
+  command = "npm run build"
+  publish = ".next"
+
+[build.processing]
+  [build.processing.secrets]
+    # This key is public and required by the Razorpay client-side SDK.
+    # It is safe to expose in the build output.
+    omit_keys = ["NEXT_PUBLIC_RAZORPAY_KEY_ID"]
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
