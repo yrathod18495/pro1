@@ -1,0 +1,198 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+
+    "limit": {
+      ".read": "auth != null && auth.token.role === 'admin'",
+      ".write": "auth != null && auth.token.role === 'admin'"
+    },
+
+    "carts": {
+      "$userId": {
+        ".read": "auth != null && auth.uid === $userId",
+        ".write": "auth != null && auth.uid === $userId"
+      }
+    },
+
+    "cloningHistory": {
+      "$userId": {
+        ".read": "auth != null && (auth.uid === $userId || auth.token.role === 'admin')",
+        ".write": "auth != null && (auth.uid === $userId || auth.token.role === 'admin')"
+      }
+    },
+
+    "clone_studio": {
+      ".read": "auth != null",
+      ".write": "auth != null && auth.token.role === 'admin'"
+    },
+
+    "projectEdits": {
+      "$projectId": {
+        ".read": "auth != null",
+        ".write": "auth != null"
+      }
+    },
+
+    "voice_replacement": {
+      ".read": "auth != null && query.orderByChild == 'userId' && query.equalTo == auth.uid",
+      "$jobId": {
+        ".read": "auth != null && (data.child('userId').val() === auth.uid || auth.token.role === 'admin')",
+        ".write": "auth != null && (newData.child('userId').val() === auth.uid || data.child('userId').val() === auth.uid || auth.token.role === 'admin')"
+      },
+      ".indexOn": ["userId", "projectId", "status", "timestamp"]
+    },
+
+    "settings": {
+      ".read": true,
+      ".write": "auth != null && auth.token.role === 'admin'"
+    },
+
+    "toolSettings": {
+      ".read": true,
+      ".write": "auth != null && auth.token.role === 'admin'"
+    },
+    
+    "modelUsage": {
+      ".read": "auth != null && auth.token.role === 'admin'",
+      ".write": false
+    },
+    
+    "pushSubscriptions": {
+      "$userId": {
+        ".read": "auth != null && (auth.uid === $userId || auth.token.role === 'admin')",
+        ".write": "auth != null && auth.uid === $userId"
+      }
+    },
+
+    "userDailyLimits": {
+      "$userId": {
+        ".read": "auth != null && auth.uid === $userId",
+        ".write": "auth != null && auth.token.role === 'admin'"
+      }
+    },
+
+    "userScriptGenerationLimits": {
+      "$userId": {
+        ".read": "auth != null && auth.uid === $userId",
+        ".write": "auth != null && auth.token.role === 'admin'"
+      }
+    },
+
+    "tempMusicGenerations": {
+      "$userId": {
+        ".read": "auth != null && (auth.uid === $userId || auth.token.role === 'admin')",
+        ".write": "auth != null && (auth.uid === $userId || auth.token.role === 'admin')"
+      }
+    },
+
+    "tempScriptGenerations": {
+      "$userId": {
+        ".read": "auth != null && (auth.uid === $userId || auth.token.role === 'admin')",
+        ".write": "auth != null && (auth.uid === $userId || auth.token.role === 'admin')",
+        ".indexOn": ["status", "timestamp"]
+      }
+    },
+
+    "creditHistory": {
+      "$userId": {
+        ".read": "auth != null && (auth.uid === $userId || auth.token.role === 'admin')",
+        ".write": "auth != null && auth.token.role === 'admin'"
+      }
+    },
+    
+    "users": {
+        "$userId": {
+            "library_selections": {
+                ".read": "auth != null && (auth.uid === $userId || auth.token.role === 'admin')",
+                ".write": "auth != null && (auth.uid === $userId || auth.token.role === 'admin')"
+            }
+        }
+    },
+
+    "sellerProfiles": {
+      ".read": true,
+      ".indexOn": ["isVerified", "storeName"],
+      "$sellerId": {
+        ".write": "auth != null && (auth.uid === $sellerId || auth.token.role === 'admin')"
+      }
+    },
+
+    "pendingSellerProfiles": {
+      ".read": "auth != null && auth.token.role === 'admin'",
+      ".write": "auth != null",
+      ".indexOn": ["createdAt", "status"]
+    },
+    
+    "pending_projects": {
+      ".indexOn": ["status", "createdAt"],
+      "$projectId": {
+        ".read": "(auth != null && auth.token.role == 'admin') || (auth != null && data.child('userId').val() === auth.uid)",
+        ".write": "(auth != null && auth.token.role == 'admin') || (auth != null && newData.child('userId').val() === auth.uid)"
+      }
+    },
+
+    "editingjobs": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      ".indexOn": ["projectId", "userId", "status", "createdAt"]
+    },
+
+    "pro_projects": {
+      ".indexOn": ["status", "createdAt"],
+      "$projectId": {
+        ".read": "(auth != null && auth.token.role == 'admin') || (auth != null && data.child('userId').val() === auth.uid)",
+        ".write": "(auth != null && auth.token.role == 'admin') || (auth != null && newData.child('userId').val() === auth.uid)"
+      }
+    },
+
+    "pendingProducts": {
+      ".read": "auth != null && (auth.token.role === 'admin' || query.orderByChild == 'sellerId' && query.equalTo == auth.uid)",
+      ".indexOn": ["sellerId", "createdAt", "status"],
+      "$productId": {
+        ".write": "auth != null && (newData.child('sellerId').val() === auth.uid || auth.token.role === 'admin')"
+      }
+    },
+    
+    "affiliateCodes": {
+      ".read": "auth != null",
+      ".write": "auth != null && auth.token.role === 'admin'",
+      ".indexOn": ["affiliateEmail"]
+    },
+
+    "storeProducts": {
+      ".read": true,
+      ".write": "auth != null && auth.token.role === 'admin'",
+      ".indexOn": ["sellerId", "productType", "createdAt"]
+    },
+
+    "publicMusicLibrary": {
+      ".read": true,
+      ".write": "auth != null && auth.token.role === 'admin'",
+      ".indexOn": ["category", "createdAt"]
+    },
+
+    "chats": {
+       ".read": "auth != null && auth.token.role === 'admin'",
+       ".indexOn": ["lastMessageTimestamp", "isReadByAdmin"],
+       "$userId": {
+        ".read": "auth != null && (auth.uid === $userId || auth.token.role === 'admin')",
+        ".write": "auth != null && (auth.uid === $userId || auth.token.role === 'admin')"
+      }
+    },
+
+    "dailySummaries": {
+      ".read": "auth != null && auth.token.role === 'admin'",
+      ".write": "auth != null && auth.token.role === 'admin'",
+      ".indexOn": ["timestamp"]
+    },
+    
+    "onlineUsers": {
+      ".read": "auth != null && auth.token.role === 'admin'",
+      ".indexOn": ["lastSeen"],
+      "$userId": {
+        ".write": "auth != null && auth.uid === $userId"
+      }
+    }
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "name": "nextn",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2026-05-26",
+  "assets": {
+    "directory": ".open-next/assets"
+  }
+}
