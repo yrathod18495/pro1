@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>12Labs API Playground</title>
+<style>
+  :root {
+    --primary: #3b5bfd;
+    --bg: #f7f8fb;
+    --card: #ffffff;
+    --border: #e4e7ee;
+    --text: #16181d;
+    --muted: #6b7280;
+    --success: #16a34a;
+    --error: #dc2626;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding: 24px 16px 60px;
+  }
+  .wrap { max-width: 720px; margin: 0 auto; }
+  h1 { font-size: 20px; margin: 0 0 4px; font-weight: 800; }
+  .subtitle { color: var(--muted); font-size: 13px; margin: 0 0 20px; }
+  .key-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 16px 18px;
+    margin-bottom: 18px;
+  }
+  label { display: block; font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); margin-bottom: 6px; }
+  input[type="text"], input[type="password"], textarea, select {
+    width: 100%;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 11px 13px;
+    font-size: 14px;
+    font-family: inherit;
+    background: #fbfbfd;
+    color: var(--text);
+  }
+  textarea { resize: vertical; min-height: 120px; line-height: 1.5; font-family: ui-monospace, monospace; font-size: 13px; }
+  .key-row { display: flex; gap: 8px; }
+  .key-row input { flex: 1; }
+  .toggle-btn { border: 1px solid var(--border); background: #fff; border-radius: 10px; padding: 0 12px; cursor: pointer; font-size: 12px; color: var(--muted); height: 40px; white-space: nowrap; }
+
+  .tabs { display: flex; gap: 6px; margin-bottom: 16px; border-bottom: 1px solid var(--border); }
+  .tab-btn {
+    border: none; background: none; padding: 10px 14px; font-size: 13px; font-weight: 700;
+    color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px;
+  }
+  .tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); }
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 20px;
+  }
+  .field { margin-bottom: 14px; }
+  button.primary {
+    background: var(--primary); color: #fff; border: none; border-radius: 12px;
+    padding: 11px 18px; font-size: 14px; font-weight: 800; cursor: pointer;
+  }
+  button.primary:disabled { opacity: 0.55; cursor: not-allowed; }
+  button.secondary {
+    background: #fff; color: var(--text); border: 1px solid var(--border); border-radius: 12px;
+    padding: 11px 18px; font-size: 14px; font-weight: 700; cursor: pointer;
+  }
+  pre.output {
+    margin-top: 14px; background: #0f1117; color: #7ee787; border-radius: 12px;
+    padding: 14px; font-size: 12px; max-height: 320px; overflow: auto; white-space: pre-wrap; word-break: break-word;
+  }
+  .status-row { display: flex; align-items: center; gap: 10px; margin-top: 14px; font-size: 13px; }
+  .spinner { width: 15px; height: 15px; border: 2px solid #d7dcf5; border-top-color: var(--primary); border-radius: 50%; animation: spin 0.8s linear infinite; flex-shrink: 0; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .error-text { color: var(--error); font-weight: 600; }
+  audio { width: 100%; margin-top: 12px; }
+  .download-link { display: inline-block; margin-top: 8px; font-size: 13px; font-weight: 700; color: var(--primary); text-decoration: none; }
+  .hint { font-size: 11.5px; color: var(--muted); margin-top: 5px; }
+  .char-list { margin-top: 12px; display: flex; flex-direction: column; gap: 6px; }
+  .char-row { display: flex; justify-content: space-between; align-items: center; border: 1px solid var(--border); border-radius: 10px; padding: 8px 12px; font-size: 13px; }
+  .char-row b { font-weight: 700; }
+  .char-row span { color: var(--muted); font-size: 12px; }
+  .voice-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; margin-top: 12px; }
+  .voice-chip { border: 1px solid var(--border); border-radius: 10px; padding: 8px 10px; font-size: 12px; text-align: center; }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <h1>🧪 12Labs API Playground</h1>
+  <p class="subtitle">Test every public endpoint from one page — no code required. Full contract: <a href="/api-guide.md" target="_blank">/api-guide.md</a></p>
+
+  <div class="key-card">
+    <label for="apiKey">X-API-Key</label>
+    <div class="key-row">
+      <input type="password" id="apiKey" placeholder="Paste your secret API key" />
+      <button class="toggle-btn" id="toggleKeyBtn" type="button">Show</button>
+    </div>
+    <p class="hint">Saved only in this browser (localStorage). Get a key from the Developer dashboard's API Keys tab.</p>
+  </div>
+
+  <div class="tabs">
+    <button class="tab-btn active" data-panel="panel-generate">Generate Voiceover</button>
+    <button class="tab-btn" data-panel="panel-script">Generate Script</button>
+    <button class="tab-btn" data-panel="panel-analyze">Analyze Script</button>
+    <button class="tab-btn" data-panel="panel-voices">Voice Names</button>
+  </div>
+
+  <!-- ============ GENERATE (one-click, analyze + assign + queue + poll) ============ -->
+  <div class="panel active card" id="panel-generate">
+    <div class="field">
+      <label for="genProjectName">Project Name (optional)</label>
+      <input type="text" id="genProjectName" placeholder="My Project" />
+    </div>
+    <div class="field">
+      <label for="genScript">Script</label>
+      <textarea id="genScript" placeholder="John: [happy] Hello there!&#10;Mary: [curious] Hi John, how are you?"></textarea>
+      <p class="hint">One line per line of dialogue: <code>Character: Dialogue</code>, or <code>Character: [emotion] Dialogue</code>. Voices are assigned automatically.</p>
+    </div>
+    <button class="primary" id="genBtn" type="button">Generate Voiceover</button>
+
+    <div class="status-row" id="genStatusRow" style="display:none;">
+      <div class="spinner" id="genSpinner"></div>
+      <span>Status: <b id="genStatusLabel">—</b></span>
+    </div>
+    <div id="genResultArea"></div>
+  </div>
+
+  <!-- ============ GENERATE SCRIPT ============ -->
+  <div class="panel card" id="panel-script">
+    <div class="field">
+      <label for="scriptPrompt">Prompt</label>
+      <textarea id="scriptPrompt" placeholder="A story about a lost dog finding its way home"></textarea>
+    </div>
+    <div class="field">
+      <label for="scriptLength">Length</label>
+      <select id="scriptLength">
+        <option value="10min">10 minutes</option>
+        <option value="20min">20 minutes</option>
+        <option value="30min">30 minutes</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="scriptGenre">Genre (optional)</label>
+      <input type="text" id="scriptGenre" placeholder="moral" />
+    </div>
+    <button class="primary" id="scriptBtn" type="button">Generate Script</button>
+
+    <div class="status-row" id="scriptStatusRow" style="display:none;">
+      <div class="spinner" id="scriptSpinner"></div>
+      <span>Status: <b id="scriptStatusLabel">—</b></span>
+    </div>
+    <div id="scriptResultArea"></div>
+  </div>
+
+  <!-- ============ ANALYZE ============ -->
+  <div class="panel card" id="panel-analyze">
+    <div class="field">
+      <label for="anaScript">Script</label>
+      <textarea id="anaScript" placeholder="John: [happy] Hello there!&#10;Mary: [curious] Hi John, how are you?"></textarea>
+      <p class="hint">Free within your daily limit — see /api-guide.md for the exact response shape.</p>
+    </div>
+    <button class="primary" id="anaBtn" type="button">Analyze Script</button>
+    <div id="anaResultArea"></div>
+  </div>
+
+  <!-- ============ VOICE NAMES ============ -->
+  <div class="panel card" id="panel-voices">
+    <p class="hint" style="margin-top:0;">Lists every valid voice name for the single-line <code>/api/v1/voice</code> endpoint (a separate, older endpoint — <code>/api/v1/generate</code> above assigns voices for you automatically and doesn't need this).</p>
+    <button class="secondary" id="voicesBtn" type="button">Fetch Voice Names</button>
+    <div id="voicesResultArea"></div>
+  </div>
+</div>
+
+<script>
+const BASE_URL = window.location.origin.startsWith('http') && !window.location.origin.includes('localhost')
+  ? window.location.origin
+  : 'https://www.12labs.in';
+const POLL_INTERVAL_MS = 4000;
+const MAX_POLL_MS = 10 * 60 * 1000;
+
+const apiKeyInput = document.getElementById('apiKey');
+const toggleKeyBtn = document.getElementById('toggleKeyBtn');
+
+const savedKey = localStorage.getItem('twelvelabs_api_key');
+if (savedKey) apiKeyInput.value = savedKey;
+apiKeyInput.addEventListener('input', () => localStorage.setItem('twelvelabs_api_key', apiKeyInput.value.trim()));
+
+toggleKeyBtn.addEventListener('click', () => {
+  const isPassword = apiKeyInput.type === 'password';
+  apiKeyInput.type = isPassword ? 'text' : 'password';
+  toggleKeyBtn.textContent = isPassword ? 'Hide' : 'Show';
+});
+
+// ---- Tabs ----
+document.querySelectorAll('.tab-btn').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach((b) => b.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach((p) => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById(btn.dataset.panel).classList.add('active');
+  });
+});
+
+function requireKey() {
+  const key = apiKeyInput.value.trim();
+  if (!key) alert('Enter your API key above first.');
+  return key;
+}
+
+function renderOutput(container, obj) {
+  const pre = document.createElement('pre');
+  pre.className = 'output';
+  pre.textContent = JSON.stringify(obj, null, 2);
+  container.innerHTML = '';
+  container.appendChild(pre);
+}
+
+// ================= GENERATE =================
+const genBtn = document.getElementById('genBtn');
+const genStatusRow = document.getElementById('genStatusRow');
+const genSpinner = document.getElementById('genSpinner');
+const genStatusLabel = document.getElementById('genStatusLabel');
+const genResultArea = document.getElementById('genResultArea');
+
+async function pollUntilDone(projectId, apiKey, onTick) {
+  const startedAt = Date.now();
+  while (true) {
+    if (Date.now() - startedAt > MAX_POLL_MS) {
+      throw new Error('Timed out waiting for generation to finish. It may still complete — check back later.');
+    }
+    await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
+    const res = await fetch(`${BASE_URL}/api/v1/generate/${encodeURIComponent(projectId)}`, { headers: { 'x-api-key': apiKey } });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Could not check generation status.');
+    if (data.status === 'completed') return data.audio_url;
+    if (data.status === 'error') throw new Error(data.error || 'Generation failed.');
+    onTick(data.status);
+  }
+}
+
+genBtn.addEventListener('click', async () => {
+  const apiKey = requireKey();
+  if (!apiKey) return;
+  const script = document.getElementById('genScript').value.trim();
+  const projectName = document.getElementById('genProjectName').value.trim() || 'Untitled';
+  if (!script) { alert('Paste a script first.'); return; }
+
+  genBtn.disabled = true;
+  genResultArea.innerHTML = '';
+  genStatusRow.style.display = 'flex';
+  genSpinner.style.display = 'block';
+  genStatusLabel.textContent = 'submitting…';
+
+  try {
+    const genRes = await fetch(`${BASE_URL}/api/v1/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey },
+      body: JSON.stringify({ script, project_name: projectName }),
+    });
+    const genData = await genRes.json();
+    if (!genRes.ok) throw new Error(genData.error || 'Could not start generation.');
+
+    genStatusLabel.textContent = `in_queue (est. ${genData.estimated_cost ?? '—'} credits)`;
+    const audioUrl = await pollUntilDone(genData.project_id, apiKey, (status) => {
+      genStatusLabel.textContent = status.replace('_', ' ');
+    });
+
+    genSpinner.style.display = 'none';
+    genStatusLabel.textContent = 'completed';
+    genResultArea.innerHTML = `
+      <audio controls src="${audioUrl}"></audio><br/>
+      <a class="download-link" href="${audioUrl}" download target="_blank">Download MP3</a>
+    `;
+  } catch (err) {
+    genSpinner.style.display = 'none';
+    genStatusLabel.textContent = 'failed';
+    genStatusLabel.className = 'error-text';
+    renderOutput(genResultArea, { error: err.message });
+  } finally {
+    genBtn.disabled = false;
+  }
+});
+
+// ================= GENERATE SCRIPT =================
+const scriptBtn = document.getElementById('scriptBtn');
+const scriptStatusRow = document.getElementById('scriptStatusRow');
+const scriptSpinner = document.getElementById('scriptSpinner');
+const scriptStatusLabel = document.getElementById('scriptStatusLabel');
+const scriptResultArea = document.getElementById('scriptResultArea');
+
+async function pollScriptUntilDone(mappingId, apiKey, onTick) {
+  const startedAt = Date.now();
+  while (true) {
+    if (Date.now() - startedAt > MAX_POLL_MS) {
+      throw new Error('Timed out waiting for the script to finish. It may still complete — check back later.');
+    }
+    await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
+    const res = await fetch(`${BASE_URL}/api/v1/script/${encodeURIComponent(mappingId)}`, { headers: { 'x-api-key': apiKey } });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Could not check script status.');
+    if (data.status === 'completed') return data;
+    if (data.status === 'error') throw new Error(data.error || 'Script generation failed.');
+    onTick(data.status);
+  }
+}
+
+scriptBtn.addEventListener('click', async () => {
+  const apiKey = requireKey();
+  if (!apiKey) return;
+  const prompt = document.getElementById('scriptPrompt').value.trim();
+  const length = document.getElementById('scriptLength').value;
+  const genre = document.getElementById('scriptGenre').value.trim();
+  if (!prompt) { alert('Describe what the script should be about first.'); return; }
+
+  scriptBtn.disabled = true;
+  scriptResultArea.innerHTML = '';
+  scriptStatusRow.style.display = 'flex';
+  scriptSpinner.style.display = 'block';
+  scriptStatusLabel.textContent = 'submitting…';
+
+  try {
+    const submitRes = await fetch(`${BASE_URL}/api/v1/script`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey },
+      body: JSON.stringify({ prompt, length, genre: genre || undefined }),
+    });
+    const submitData = await submitRes.json();
+    if (!submitRes.ok) throw new Error(submitData.error || 'Could not start script generation.');
+
+    scriptStatusLabel.textContent = `processing (est. ${submitData.estimated_cost ?? '—'} credits)`;
+    const result = await pollScriptUntilDone(submitData.mapping_id, apiKey, (status) => {
+      scriptStatusLabel.textContent = status;
+    });
+
+    scriptSpinner.style.display = 'none';
+    scriptStatusLabel.textContent = 'completed';
+    scriptResultArea.innerHTML = `
+      <p class="hint" style="margin-top:12px;">${(result.teaser || '').replace(/</g, '&lt;')}</p>
+      <a class="download-link" href="${result.script_url}" download target="_blank">Download Full Script (.txt)</a>
+    `;
+  } catch (err) {
+    scriptSpinner.style.display = 'none';
+    scriptStatusLabel.textContent = 'failed';
+    scriptStatusLabel.className = 'error-text';
+    renderOutput(scriptResultArea, { error: err.message });
+  } finally {
+    scriptBtn.disabled = false;
+  }
+});
+
+// ================= ANALYZE =================
+const anaBtn = document.getElementById('anaBtn');
+const anaResultArea = document.getElementById('anaResultArea');
+
+anaBtn.addEventListener('click', async () => {
+  const apiKey = requireKey();
+  if (!apiKey) return;
+  const script = document.getElementById('anaScript').value.trim();
+  if (!script) { alert('Paste a script first.'); return; }
+
+  anaBtn.disabled = true;
+  anaResultArea.innerHTML = '<p class="hint">Analyzing…</p>';
+
+  try {
+    const res = await fetch(`${BASE_URL}/api/v1/analyze`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey },
+      body: JSON.stringify({ script }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Analysis failed.');
+
+    const charList = document.createElement('div');
+    charList.className = 'char-list';
+    (data.characters || []).forEach((c) => {
+      const row = document.createElement('div');
+      row.className = 'char-row';
+      row.innerHTML = `<b>${c.name}</b><span>${c.gender} · ${c.age} · ${c.dialogueCount} line(s)</span>`;
+      charList.appendChild(row);
+    });
+    anaResultArea.innerHTML = '';
+    anaResultArea.appendChild(charList);
+    renderOutput(anaResultArea, data);
+  } catch (err) {
+    renderOutput(anaResultArea, { error: err.message });
+  } finally {
+    anaBtn.disabled = false;
+  }
+});
+
+// ================= VOICE NAMES =================
+const voicesBtn = document.getElementById('voicesBtn');
+const voicesResultArea = document.getElementById('voicesResultArea');
+
+voicesBtn.addEventListener('click', async () => {
+  const apiKey = requireKey();
+  if (!apiKey) return;
+
+  voicesBtn.disabled = true;
+  voicesResultArea.innerHTML = '<p class="hint">Fetching…</p>';
+
+  try {
+    const res = await fetch(`${BASE_URL}/api/v1/voice/names`, { headers: { 'x-api-key': apiKey } });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Could not fetch voice names.');
+
+    const grid = document.createElement('div');
+    grid.className = 'voice-grid';
+    (data.available_names || []).forEach((name) => {
+      const chip = document.createElement('div');
+      chip.className = 'voice-chip';
+      chip.textContent = name;
+      grid.appendChild(chip);
+    });
+    voicesResultArea.innerHTML = '';
+    voicesResultArea.appendChild(grid);
+  } catch (err) {
+    renderOutput(voicesResultArea, { error: err.message });
+  } finally {
+    voicesBtn.disabled = false;
+  }
+});
+</script>
+
+</body>
+</html>

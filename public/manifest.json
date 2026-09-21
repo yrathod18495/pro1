@@ -1,0 +1,66 @@
+{
+  "id": "/",
+  "name": "12Labs - AI Voice Generation & Content Studio",
+  "short_name": "12Labs",
+  "description": "The ultimate AI toolkit for Indian creators. Generate high-quality AI voices, create YouTube SEO content, design thumbnails, and write scripts—all in one place.",
+  "icons": [
+    {
+      "src": "/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "theme_color": "#ffffff",
+  "background_color": "#ffffff",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "scope": "/",
+  "lang": "en",
+  "dir": "ltr",
+  "categories": ["productivity", "utilities", "multimedia"],
+  "prefer_related_applications": false,
+  "shortcuts": [
+    {
+      "name": "AI Voice Studio",
+      "short_name": "Studio",
+      "description": "Generate multi-character AI voiceovers",
+      "url": "/studio",
+      "icons": [{ "src": "/icon-192x192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Script Generator",
+      "short_name": "Scripts",
+      "description": "Write AI story scripts",
+      "url": "/script-generator",
+      "icons": [{ "src": "/icon-192x192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Music Library",
+      "short_name": "Music",
+      "description": "Royalty-free background music",
+      "url": "/music-library",
+      "icons": [{ "src": "/icon-192x192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "My Projects",
+      "short_name": "History",
+      "description": "View your generated projects",
+      "url": "/history",
+      "icons": [{ "src": "/icon-192x192.png", "sizes": "192x192" }]
+    }
+  ]
+}
